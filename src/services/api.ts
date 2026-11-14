@@ -1,15 +1,33 @@
 /**
  * API Service for Production Management System
- * Handles all API calls to JSON Server or GitHub API
+ * Automatically uses:
+ * - JSON Server for local development (localhost)
+ * - localStorage for GitHub Pages deployment
  */
+
+import {
+  initializeLocalDB,
+  localUserAPI,
+  localOrderAPI,
+  localWorkOrderAPI,
+  localActivityLogAPI,
+} from './localStorageDB';
 
 // API Configuration
 const IS_PRODUCTION = import.meta.env.PROD;
+const IS_LOCALHOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const JSON_SERVER_URL = 'http://localhost:3001';
-const GITHUB_API_URL = 'https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/contents/db.json';
 
-// Use JSON Server for development, GitHub API for production
-const API_BASE_URL = IS_PRODUCTION ? GITHUB_API_URL : JSON_SERVER_URL;
+// Determine which backend to use
+const USE_LOCAL_STORAGE = IS_PRODUCTION || !IS_LOCALHOST;
+
+// Initialize localStorage DB if using it
+if (USE_LOCAL_STORAGE) {
+  console.log('🌐 Running on GitHub Pages - Using localStorage');
+  initializeLocalDB();
+} else {
+  console.log('💻 Running on localhost - Using JSON Server');
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,10 +113,13 @@ export interface ActivityLog {
 // ─── API Helper Functions ─────────────────────────────────────────────────────
 
 async function fetchAPI(endpoint: string, options?: RequestInit) {
+  // If using localStorage, don't make HTTP requests
+  if (USE_LOCAL_STORAGE) {
+    throw new Error('localStorage mode - should not call fetchAPI');
+  }
+
   try {
-    const url = IS_PRODUCTION 
-      ? API_BASE_URL 
-      : `${JSON_SERVER_URL}${endpoint}`;
+    const url = `${JSON_SERVER_URL}${endpoint}`;
     
     const response = await fetch(url, {
       ...options,
@@ -124,23 +145,27 @@ async function fetchAPI(endpoint: string, options?: RequestInit) {
 export const userAPI = {
   // Get all users
   getAll: async (): Promise<User[]> => {
+    if (USE_LOCAL_STORAGE) return localUserAPI.getAll();
     return await fetchAPI('/users');
   },
 
   // Get user by username
   getByUsername: async (username: string): Promise<User | null> => {
+    if (USE_LOCAL_STORAGE) return localUserAPI.getByUsername(username);
     const users = await fetchAPI(`/users?username=${username}`);
     return users[0] || null;
   },
 
   // Authenticate user
   authenticate: async (username: string, password: string): Promise<User | null> => {
+    if (USE_LOCAL_STORAGE) return localUserAPI.authenticate(username, password);
     const users = await fetchAPI(`/users?username=${username}&password=${password}`);
     return users[0] || null;
   },
 
   // Create new user
   create: async (user: Omit<User, 'id' | 'createdAt'>): Promise<User> => {
+    if (USE_LOCAL_STORAGE) return localUserAPI.create(user);
     const newUser = {
       ...user,
       id: `u${Date.now()}`,
@@ -154,6 +179,7 @@ export const userAPI = {
 
   // Update user
   update: async (id: string, updates: Partial<User>): Promise<User> => {
+    if (USE_LOCAL_STORAGE) return localUserAPI.update(id, updates);
     return await fetchAPI(`/users/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
@@ -166,11 +192,13 @@ export const userAPI = {
 export const orderAPI = {
   // Get all orders
   getAll: async (): Promise<ProductionOrder[]> => {
+    if (USE_LOCAL_STORAGE) return localOrderAPI.getAll();
     return await fetchAPI('/productionOrders');
   },
 
   // Get order by ID
   getById: async (id: string): Promise<ProductionOrder | null> => {
+    if (USE_LOCAL_STORAGE) return localOrderAPI.getById(id);
     try {
       return await fetchAPI(`/productionOrders/${id}`);
     } catch {
@@ -180,11 +208,13 @@ export const orderAPI = {
 
   // Get orders by status
   getByStatus: async (status: string): Promise<ProductionOrder[]> => {
+    if (USE_LOCAL_STORAGE) return localOrderAPI.getByStatus(status);
     return await fetchAPI(`/productionOrders?status=${status}`);
   },
 
   // Create new order
   create: async (order: Omit<ProductionOrder, 'id' | 'createdAt' | 'updatedAt'>): Promise<ProductionOrder> => {
+    if (USE_LOCAL_STORAGE) return localOrderAPI.create(order);
     const newOrder = {
       ...order,
       id: `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`,
@@ -199,6 +229,7 @@ export const orderAPI = {
 
   // Update order
   update: async (id: string, updates: Partial<ProductionOrder>): Promise<ProductionOrder> => {
+    if (USE_LOCAL_STORAGE) return localOrderAPI.update(id, updates);
     const updatedOrder = {
       ...updates,
       updatedAt: new Date().toISOString(),
@@ -211,6 +242,7 @@ export const orderAPI = {
 
   // Delete order
   delete: async (id: string): Promise<void> => {
+    if (USE_LOCAL_STORAGE) return localOrderAPI.delete(id);
     await fetchAPI(`/productionOrders/${id}`, {
       method: 'DELETE',
     });
@@ -222,16 +254,19 @@ export const orderAPI = {
 export const workOrderAPI = {
   // Get all work orders
   getAll: async (): Promise<WorkOrder[]> => {
+    if (USE_LOCAL_STORAGE) return localWorkOrderAPI.getAll();
     return await fetchAPI('/workOrders');
   },
 
   // Get work orders by order ID
   getByOrderId: async (orderId: string): Promise<WorkOrder[]> => {
+    if (USE_LOCAL_STORAGE) return localWorkOrderAPI.getByOrderId(orderId);
     return await fetchAPI(`/workOrders?orderId=${orderId}`);
   },
 
   // Create work order
   create: async (workOrder: Omit<WorkOrder, 'id' | 'createdAt' | 'updatedAt'>): Promise<WorkOrder> => {
+    if (USE_LOCAL_STORAGE) return localWorkOrderAPI.create(workOrder);
     const newWorkOrder = {
       ...workOrder,
       id: `WO-${Date.now()}`,
@@ -246,6 +281,7 @@ export const workOrderAPI = {
 
   // Update work order
   update: async (id: string, updates: Partial<WorkOrder>): Promise<WorkOrder> => {
+    if (USE_LOCAL_STORAGE) return localWorkOrderAPI.update(id, updates);
     const updatedWorkOrder = {
       ...updates,
       updatedAt: new Date().toISOString(),
@@ -262,16 +298,19 @@ export const workOrderAPI = {
 export const activityLogAPI = {
   // Get all activity logs
   getAll: async (): Promise<ActivityLog[]> => {
+    if (USE_LOCAL_STORAGE) return localActivityLogAPI.getAll();
     return await fetchAPI('/activityLog');
   },
 
   // Get activity logs by order ID
   getByOrderId: async (orderId: string): Promise<ActivityLog[]> => {
+    if (USE_LOCAL_STORAGE) return localActivityLogAPI.getByOrderId(orderId);
     return await fetchAPI(`/activityLog?orderId=${orderId}`);
   },
 
   // Create activity log
   create: async (log: Omit<ActivityLog, 'id' | 'timestamp'>): Promise<ActivityLog> => {
+    if (USE_LOCAL_STORAGE) return localActivityLogAPI.create(log);
     const newLog = {
       ...log,
       id: `log-${Date.now()}`,
@@ -292,5 +331,13 @@ export const api = {
   workOrders: workOrderAPI,
   activityLog: activityLogAPI,
 };
+
+// Export localStorage utilities for manual control
+export { 
+  initializeLocalDB, 
+  resetLocalDB, 
+  exportLocalDB, 
+  importLocalDB 
+} from './localStorageDB';
 
 export default api;

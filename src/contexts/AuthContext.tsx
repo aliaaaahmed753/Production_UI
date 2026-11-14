@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // API authentication successful
       const { password: _pw, email: _email, ...safeUser } = user;
-      setUser(safeUser);
+      setUser(safeUser as AppUser);
 
       if (rememberMe) {
         localStorage.setItem(REMEMBER_KEY, JSON.stringify(safeUser));
