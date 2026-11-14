@@ -285,7 +285,7 @@ export function WorkOrderSavedSummary({
                               {order.sizes
                                 .map(
                                   (size) =>
-                                    `${size}${row.specsBySize[size] ? ` (${row.specsBySize[size]})` : ''}: ${formatNumber(
+                                    `${size}${row.specsBySize?.[size] ? ` (${row.specsBySize[size]})` : ''}: ${formatNumber(
                                       result.perSize[size] ?? 0,
                                     )}`,
                                 )

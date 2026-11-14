@@ -6,6 +6,7 @@ import type { ProductionHistoryEvent, ProductionLine, ProductionStatus } from '.
  * while the new screens are built one by one.
  */
 
+export type MeasurementUnit = 'cm' | 'in';
 export type FabricUnit = 'kg' | 'm' | 'yd';
 
 /** Work done outside the sewing line. Chosen when the order is created, tracked later by count. */
@@ -37,7 +38,6 @@ export interface FabricSpec {
   composition?: string;
   consumptionPerPiece?: number;
   consumptionUnit: FabricUnit;
-  /** Extra percentage added on top of the total fabric quantity needed (نسبة زيادة الخام). */
   extraPercent?: number;
 }
 
@@ -57,13 +57,13 @@ export interface ColorLine {
   fabricColors?: Record<string, string>;
 }
 
-export type MeasurementUnit = 'cm' | 'in';
-
 export interface MeasurementRow {
   id: string;
   /** Point letter on the sheet: A, B, C ... */
   code: string;
   name: string;
+  measureFrom?: string;
+  measureTo?: string;
   /** Value per size, as typed (e.g. "52" or "52.5"). A missing key means "not set". */
   values: Partial<Record<SizeLabel, string>>;
 }
@@ -103,9 +103,12 @@ export interface AccessoryLine {
   accessoryQty: number;
   garmentQty: number;
   basis: AccessoryBasis;
-  /** When true the quantity is also split per size and each size can have its own spec. */
+  /** Extra percentage added on top of the accessory quantity (0 when empty). */
+  extraPercent?: number;
+  /** When true the quantity is also split (and shown) per size. */
   bySize: boolean;
-  specsBySize: Record<SizeLabel, string>;
+  /** Spec per size, keyed by size label. */
+  specsBySize?: Record<string, string>;
 }
 
 export interface SignOff {
@@ -143,7 +146,6 @@ export interface WorkOrder {
   processes: ExternalProcess[];
   colors: ColorLine[];
   measurements: MeasurementRow[];
-  /** Unit of every value in the measurements table. Missing on older orders: treated as cm. */
   measurementUnit?: MeasurementUnit;
   packing: PackingSpec;
   mainLabelName: string;

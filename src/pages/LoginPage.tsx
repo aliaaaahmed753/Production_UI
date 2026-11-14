@@ -8,6 +8,13 @@ import {
   TextField,
   Typography,
   Alert,
+  Checkbox,
+  FormControlLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  LinearProgress,
 } from '@mui/material';
 import {
   Eye,
@@ -18,18 +25,22 @@ import {
   Layers,
   ChevronRight,
   ChevronLeft,
+  Mail,
+  CheckCircle2,
+  AlertCircle,
+  Shield,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, ROLE_LABELS } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 
 const DEMO_USERS = [
-  { username: 'po_manager', role: 'po_manager' as const },
-  { username: 'planner', role: 'planner' as const },
-  { username: 'cutting', role: 'cutting' as const },
-  { username: 'sewing', role: 'sewing' as const },
-  { username: 'ironing', role: 'ironing' as const },
-  { username: 'packing', role: 'packing' as const },
+  { username: 'po_manager', password: 'Manager@2024', role: 'po_manager' as const },
+  { username: 'planner', password: 'Planner@2024', role: 'planner' as const },
+  { username: 'cutting', password: 'Cutting@2024', role: 'cutting' as const },
+  { username: 'sewing', password: 'Sewing@2024', role: 'sewing' as const },
+  { username: 'ironing', password: 'Ironing@2024', role: 'ironing' as const },
+  { username: 'packing', password: 'Packing@2024', role: 'packing' as const },
 ];
 
 // Production workflow stages shown on the left panel
@@ -43,7 +54,7 @@ const WORKFLOW_STEPS = [
 ];
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, resetPassword, validatePassword } = useAuth();
   const { t, locale, toggleLocale, dir } = useI18n();
   const navigate = useNavigate();
   const isAr = locale === 'ar';
@@ -53,25 +64,81 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  
+  // Forgot Password Dialog
+  const [forgotPwOpen, setForgotPwOpen] = useState(false);
+  const [forgotUsername, setForgotUsername] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  // Password Strength
+  const passwordValidation = password ? validatePassword(password) : null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const result = login(username, password);
-      setLoading(false);
-      if (result.success) {
-        navigate('/production/orders');
-      } else {
+    
+    // Use async login
+    login(username, password, rememberMe)
+      .then((result) => {
+        setLoading(false);
+        if (result.success) {
+          navigate('/production/orders');
+        } else {
+          setError(t('invalidCredentials'));
+        }
+      })
+      .catch(() => {
+        setLoading(false);
         setError(t('invalidCredentials'));
-      }
-    }, 500);
+      });
   }
 
-  function handleDemoLogin(uname: string) {
-    const result = login(uname, '1234');
-    if (result.success) navigate('/production/orders');
+  function handleDemoLogin(uname: string, pwd: string) {
+    login(uname, pwd, false)
+      .then((result) => {
+        if (result.success) navigate('/production/orders');
+      })
+      .catch(() => {
+        setError(t('invalidCredentials'));
+      });
+  }
+
+  function handleForgotPassword() {
+    setResetSuccess(false);
+    setResetLoading(true);
+    
+    resetPassword(forgotUsername)
+      .then((result) => {
+        setResetLoading(false);
+        if (result.success) {
+          setResetSuccess(true);
+        } else {
+          setError(t('userNotFound'));
+        }
+      })
+      .catch(() => {
+        setResetLoading(false);
+        setError(t('error'));
+      });
+  }
+
+  function getPasswordStrengthColor(strength: 'weak' | 'medium' | 'strong') {
+    switch (strength) {
+      case 'weak': return '#ef4444';
+      case 'medium': return '#f59e0b';
+      case 'strong': return '#10b981';
+    }
+  }
+
+  function getPasswordStrengthLabel(strength: 'weak' | 'medium' | 'strong') {
+    switch (strength) {
+      case 'weak': return isAr ? 'ضعيفة' : 'Weak';
+      case 'medium': return isAr ? 'متوسطة' : 'Medium';
+      case 'strong': return isAr ? 'قوية' : 'Strong';
+    }
   }
 
   return (
@@ -460,6 +527,78 @@ export default function LoginPage() {
                   }}
                   sx={fieldSx}
                 />
+                
+                {/* Password Strength Indicator */}
+                {password && passwordValidation && (
+                  <Box sx={{ mt: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <LinearProgress
+                        variant="determinate"
+                        value={
+                          passwordValidation.strength === 'weak' ? 33 :
+                          passwordValidation.strength === 'medium' ? 66 : 100
+                        }
+                        sx={{
+                          flex: 1,
+                          height: 4,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(255,255,255,0.05)',
+                          '& .MuiLinearProgress-bar': {
+                            bgcolor: getPasswordStrengthColor(passwordValidation.strength),
+                            borderRadius: 2,
+                          },
+                        }}
+                      />
+                      <Typography
+                        sx={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: getPasswordStrengthColor(passwordValidation.strength),
+                        }}
+                      >
+                        {getPasswordStrengthLabel(passwordValidation.strength)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+
+              {/* Remember Me & Forgot Password */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      size="small"
+                      sx={{
+                        color: '#475569',
+                        '&.Mui-checked': { color: '#3b82f6' },
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>
+                      {isAr ? 'تذكرني' : 'Remember me'}
+                    </Typography>
+                  }
+                />
+                <Button
+                  onClick={() => {
+                    setForgotPwOpen(true);
+                    setResetSuccess(false);
+                    setForgotUsername('');
+                  }}
+                  sx={{
+                    fontSize: 12,
+                    color: '#3b82f6',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    '&:hover': { bgcolor: 'rgba(59,130,246,0.08)' },
+                  }}
+                >
+                  {isAr ? 'نسيت كلمة المرور؟' : 'Forgot password?'}
+                </Button>
               </Box>
 
               {/* Submit */}
@@ -527,7 +666,7 @@ export default function LoginPage() {
                   return (
                     <Box
                       key={u.username}
-                      onClick={() => handleDemoLogin(u.username)}
+                      onClick={() => handleDemoLogin(u.username, u.password)}
                       sx={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -582,21 +721,201 @@ export default function LoginPage() {
                 })}
               </Box>
 
-              <Typography
+              <Box
                 sx={{
-                  textAlign: 'center',
-                  color: '#1e3a5f',
-                  fontSize: 11,
                   mt: 2,
-                  fontFamily: 'monospace',
-                  letterSpacing: 0.5,
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(59,130,246,0.05)',
+                  border: '1px solid rgba(59,130,246,0.15)',
                 }}
               >
-                {t('passwordHint')}
-              </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <Shield size={14} color="#3b82f6" />
+                  <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#93c5fd' }}>
+                    {isAr ? 'معلومات الدخول التجريبي' : 'Demo Login Info'}
+                  </Typography>
+                </Box>
+                <Typography
+                  sx={{
+                    color: '#64748b',
+                    fontSize: 10,
+                    lineHeight: 1.6,
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {isAr 
+                    ? 'اضغط على أي أيقونة للدخول السريع، أو استخدم أي username مع كلمة المرور الخاصة به'
+                    : 'Click any icon for quick login, or use username with its password'}
+                </Typography>
+              </Box>
             </Box>
           </Box>
         </Box>
+
+        {/* Forgot Password Dialog */}
+        <Dialog
+          open={forgotPwOpen}
+          onClose={() => setForgotPwOpen(false)}
+          dir={dir}
+          PaperProps={{
+            sx: {
+              bgcolor: '#0d1a2e',
+              borderRadius: 3,
+              border: '1px solid #1e2d42',
+              minWidth: { xs: 280, sm: 400 },
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              color: '#f1f5f9',
+              fontWeight: 700,
+              fontSize: 18,
+              borderBottom: '1px solid #1e2d42',
+              pb: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(59,130,246,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Mail size={20} color="#3b82f6" />
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>
+                  {isAr ? 'استعادة كلمة المرور' : 'Reset Password'}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>
+                  {isAr ? 'أدخل اسم المستخدم الخاص بك' : 'Enter your username'}
+                </Typography>
+              </Box>
+            </Box>
+          </DialogTitle>
+
+          <DialogContent sx={{ pt: 3, pb: 2 }}>
+            {resetSuccess ? (
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <CheckCircle2 size={48} color="#10b981" style={{ marginBottom: 16 }} />
+                <Typography sx={{ color: '#10b981', fontSize: 15, fontWeight: 600, mb: 1 }}>
+                  {isAr ? 'تم إرسال رابط الاستعادة!' : 'Reset Link Sent!'}
+                </Typography>
+                <Typography sx={{ color: '#94a3b8', fontSize: 13, lineHeight: 1.6 }}>
+                  {isAr
+                    ? 'تم إرسال رابط استعادة كلمة المرور إلى البريد الإلكتروني المرتبط بحسابك'
+                    : 'A password reset link has been sent to your registered email'}
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                <TextField
+                  fullWidth
+                  placeholder={isAr ? 'اسم المستخدم' : 'Username'}
+                  value={forgotUsername}
+                  onChange={(e) => setForgotUsername(e.target.value)}
+                  autoFocus
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <User size={16} color="#475569" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={fieldSx}
+                />
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(59,130,246,0.05)',
+                    border: '1px solid rgba(59,130,246,0.15)',
+                    display: 'flex',
+                    gap: 1,
+                  }}
+                >
+                  <AlertCircle size={16} color="#3b82f6" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <Typography sx={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                    {isAr
+                      ? 'سنرسل رابط استعادة كلمة المرور إلى بريدك الإلكتروني المسجل'
+                      : "We'll send a password reset link to your registered email"}
+                  </Typography>
+                </Box>
+              </>
+            )}
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 3, borderTop: '1px solid #1e2d42', pt: 2 }}>
+            {resetSuccess ? (
+              <Button
+                fullWidth
+                onClick={() => setForgotPwOpen(false)}
+                sx={{
+                  py: 1.2,
+                  borderRadius: 2,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  bgcolor: 'rgba(255,255,255,0.05)',
+                  color: '#e2e8f0',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+                }}
+              >
+                {isAr ? 'إغلاق' : 'Close'}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  onClick={() => setForgotPwOpen(false)}
+                  sx={{
+                    flex: 1,
+                    py: 1.2,
+                    borderRadius: 2,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#94a3b8',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.05)' },
+                  }}
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={handleForgotPassword}
+                  disabled={!forgotUsername || resetLoading}
+                  sx={{
+                    flex: 1,
+                    py: 1.2,
+                    borderRadius: 2,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    bgcolor: '#1d4ed8',
+                    color: '#fff',
+                    '&:hover': { bgcolor: '#1e40af' },
+                    '&.Mui-disabled': {
+                      bgcolor: 'rgba(29,78,216,0.2)',
+                      color: 'rgba(255,255,255,0.3)',
+                    },
+                  }}
+                >
+                  {resetLoading ? (
+                    <CircularProgress size={20} sx={{ color: 'rgba(255,255,255,0.6)' }} />
+                  ) : isAr ? (
+                    'إرسال'
+                  ) : (
+                    'Send'
+                  )}
+                </Button>
+              </>
+            )}
+          </DialogActions>
+        </Dialog>
 
         {/* Footer */}
         <Box

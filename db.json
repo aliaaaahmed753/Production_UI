@@ -1,0 +1,243 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "username": "po_manager",
+      "password": "Manager@2024",
+      "email": "manager@production.com",
+      "displayName": "PO Manager",
+      "displayNameAr": "مدير الأوردرات",
+      "role": "po_manager",
+      "avatarInitials": "PM",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u2",
+      "username": "planner",
+      "password": "Planner@2024",
+      "email": "planner@production.com",
+      "displayName": "Planner",
+      "displayNameAr": "المخطط",
+      "role": "planner",
+      "avatarInitials": "PL",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u3",
+      "username": "cutting",
+      "password": "Cutting@2024",
+      "email": "cutting@production.com",
+      "displayName": "Cutting Supervisor",
+      "displayNameAr": "مشرف القص",
+      "role": "cutting",
+      "avatarInitials": "CU",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u4",
+      "username": "sewing",
+      "password": "Sewing@2024",
+      "email": "sewing@production.com",
+      "displayName": "Sewing Supervisor",
+      "displayNameAr": "مشرف الخياطة",
+      "role": "sewing",
+      "avatarInitials": "SW",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u5",
+      "username": "ironing",
+      "password": "Ironing@2024",
+      "email": "ironing@production.com",
+      "displayName": "Ironing Supervisor",
+      "displayNameAr": "مشرف المكوى",
+      "role": "ironing",
+      "avatarInitials": "IR",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u6",
+      "username": "packing",
+      "password": "Packing@2024",
+      "email": "packing@production.com",
+      "displayName": "Packing Supervisor",
+      "displayNameAr": "مشرف التعبئة",
+      "role": "packing",
+      "avatarInitials": "PK",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "u7",
+      "username": "admin",
+      "password": "Admin@2024#Secure",
+      "email": "admin@production.com",
+      "displayName": "System Admin",
+      "displayNameAr": "مدير النظام",
+      "role": "po_manager",
+      "avatarInitials": "AD",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "productionOrders": [
+    {
+      "id": "PO-2024-001",
+      "poNumber": "PO-2024-001",
+      "customerStyle": "STYLE-A-100",
+      "factoryStyle": "FAC-A-100",
+      "client": "Zara",
+      "category": "T-Shirt",
+      "fabric": "Cotton 100%",
+      "season": "Summer 2024",
+      "destination": "Spain",
+      "deliveryDate": "2024-12-31",
+      "orderDate": "2024-11-01",
+      "status": "in_progress",
+      "colors": [
+        {
+          "id": "c1",
+          "name": "Navy Blue",
+          "hex": "#001f3f",
+          "sizes": {
+            "S": 100,
+            "M": 150,
+            "L": 120,
+            "XL": 80
+          }
+        },
+        {
+          "id": "c2",
+          "name": "White",
+          "hex": "#FFFFFF",
+          "sizes": {
+            "S": 80,
+            "M": 120,
+            "L": 100,
+            "XL": 70
+          }
+        }
+      ],
+      "totalQuantity": 820,
+      "stages": {
+        "marker": {
+          "status": "done",
+          "completedDate": "2024-11-05",
+          "completedBy": "u2"
+        },
+        "consumption": {
+          "status": "done",
+          "completedDate": "2024-11-06",
+          "completedBy": "u2"
+        },
+        "cutting": {
+          "status": "in_progress",
+          "progress": 65,
+          "startedDate": "2024-11-07",
+          "assignedTo": "u3"
+        },
+        "sewing": {
+          "status": "pending"
+        },
+        "ironing": {
+          "status": "pending"
+        },
+        "packing": {
+          "status": "pending"
+        }
+      },
+      "createdAt": "2024-11-01T10:00:00.000Z",
+      "updatedAt": "2024-11-14T15:30:00.000Z"
+    },
+    {
+      "id": "PO-2024-002",
+      "poNumber": "PO-2024-002",
+      "customerStyle": "STYLE-B-200",
+      "factoryStyle": "FAC-B-200",
+      "client": "H&M",
+      "category": "Jeans",
+      "fabric": "Denim",
+      "season": "Fall 2024",
+      "destination": "Sweden",
+      "deliveryDate": "2024-12-15",
+      "orderDate": "2024-10-20",
+      "status": "pending",
+      "colors": [
+        {
+          "id": "c3",
+          "name": "Dark Blue",
+          "hex": "#00008B",
+          "sizes": {
+            "28": 50,
+            "30": 100,
+            "32": 120,
+            "34": 80,
+            "36": 50
+          }
+        }
+      ],
+      "totalQuantity": 400,
+      "stages": {
+        "marker": {
+          "status": "pending"
+        },
+        "consumption": {
+          "status": "pending"
+        },
+        "cutting": {
+          "status": "pending"
+        },
+        "sewing": {
+          "status": "pending"
+        },
+        "ironing": {
+          "status": "pending"
+        },
+        "packing": {
+          "status": "pending"
+        }
+      },
+      "createdAt": "2024-10-20T09:00:00.000Z",
+      "updatedAt": "2024-10-20T09:00:00.000Z"
+    }
+  ],
+  "workOrders": [
+    {
+      "id": "WO-001",
+      "orderId": "PO-2024-001",
+      "type": "cutting",
+      "assignedTo": "u3",
+      "status": "in_progress",
+      "progress": 65,
+      "notes": "Cut carefully according to marker",
+      "createdAt": "2024-11-07T08:00:00.000Z",
+      "updatedAt": "2024-11-14T16:00:00.000Z"
+    }
+  ],
+  "activityLog": [
+    {
+      "id": "log-001",
+      "orderId": "PO-2024-001",
+      "userId": "u2",
+      "action": "order_created",
+      "description": "Order created",
+      "timestamp": "2024-11-01T10:00:00.000Z"
+    },
+    {
+      "id": "log-002",
+      "orderId": "PO-2024-001",
+      "userId": "u2",
+      "action": "stage_completed",
+      "stage": "marker",
+      "description": "Marker stage completed",
+      "timestamp": "2024-11-05T14:30:00.000Z"
+    },
+    {
+      "id": "log-003",
+      "orderId": "PO-2024-001",
+      "userId": "u3",
+      "action": "stage_started",
+      "stage": "cutting",
+      "description": "Cutting stage started",
+      "timestamp": "2024-11-07T08:00:00.000Z"
+    }
+  ]
+}

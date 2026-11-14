@@ -1,3 +1,22 @@
 node_modules
 dist
 *.local
+
+# Keep db.json for GitHub deployment
+# db.json
+
+# Development environment
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

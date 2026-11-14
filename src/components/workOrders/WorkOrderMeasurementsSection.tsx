@@ -33,7 +33,7 @@ interface Props {
   onUnitChange: (unit: MeasurementUnit) => void;
 }
 
-const headCellSx = { fontWeight: 600, whiteSpace: 'nowrap' } as const;
+const headCellSx = { fontWeight: 600, whiteSpace: 'nowrap', fontSize: '101%' } as const;
 
 /** Optional measurement chart: each dimension, how it is measured (from / to) and a value per size. */
 export function WorkOrderMeasurementsSection({ text, sizes, measurements, unit, onChange, onUnitChange }: Props) {
@@ -46,31 +46,30 @@ export function WorkOrderMeasurementsSection({ text, sizes, measurements, unit, 
 
   return (
     <SectionCard title={text.secMeasures} description={text.secMeasuresDesc} flush>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 2, pb: measurements.length > 0 ? 1.5 : 0 }}>
-        <Typography variant="body2" color="text.secondary">
-          {text.measureUnit}
-        </Typography>
-        {/* The unit is only a label for the whole table: typed values are never converted. */}
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          color="primary"
-          value={unit}
-          onChange={(_, next: MeasurementUnit | null) => next && onUnitChange(next)}
-          aria-label={text.measureUnit}
-        >
-          <ToggleButton value="in">{text.unitIn}</ToggleButton>
-          <ToggleButton value="cm">{text.unitCm}</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
       {measurements.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 640 }}>
             <TableHead>
               <TableRow>
                 <TableCell sx={headCellSx} />
-                <TableCell sx={headCellSx}>{text.measureName}</TableCell>
-                                {sizes.map((size) => (
+                <TableCell sx={headCellSx}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {text.measureName}
+                    {/* The unit is a label for the whole table; typed values are never converted. */}
+                    <ToggleButtonGroup
+                      size="small"
+                      exclusive
+                      color="primary"
+                      value={unit}
+                      onChange={(_, next: MeasurementUnit | null) => next && onUnitChange(next)}
+                      aria-label={text.measureUnit}
+                    >
+                      <ToggleButton value="in" sx={{ fontSize: '0.65rem', py: 0.25, px: 0.75 }}>{text.unitIn}</ToggleButton>
+                      <ToggleButton value="cm" sx={{ fontSize: '0.65rem', py: 0.25, px: 0.75 }}>{text.unitCm}</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+                </TableCell>
+                {sizes.map((size) => (
                   <TableCell key={size.id} align="center" sx={headCellSx}>
                     {size.label.trim() || '—'}
                     <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>

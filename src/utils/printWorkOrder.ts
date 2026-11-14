@@ -5,7 +5,7 @@
  */
 import type { WorkOrder } from '../types/workOrder';
 import { formatDate, formatNumber } from './format';
-import { calculateAccessory, calculateWorkOrderTotals, fabricColorOf, fabricWithExtra, planColor } from './workOrderCalc';
+import { calculateAccessory, calculateWorkOrderTotals, fabricColorOf, planColor } from './workOrderCalc';
 
 type Locale = 'ar' | 'en';
 
@@ -50,8 +50,6 @@ interface PdfStrings {
   cutTotal: string;
   cutTotalPieces: string;
   requiredFabric: string;
-  extraPercentLabel: string;
-  totalWithExtra: string;
   modelImage: string;
   notes: string;
   signOff: string;
@@ -76,8 +74,8 @@ interface PdfStrings {
   fabricColor: string;
   measures: string;
   measureName: string;
-  unitIn: string;
-  unitCm: string;
+  measureFrom: string;
+  measureTo: string;
   accessories: string;
   accessory: string;
   accSpec: string;
@@ -131,8 +129,6 @@ const STRINGS: Record<Locale, PdfStrings> = {
     cutTotal: 'إجمالي القص',
     cutTotalPieces: 'إجمالي القص (قطعة)',
     requiredFabric: 'كمية القماش المطلوب',
-    extraPercentLabel: 'نسبة الزيادة',
-    totalWithExtra: 'الإجمالي بعد الزيادة',
     modelImage: 'صورة الموديل',
     notes: 'ملاحظات',
     signOff: 'التوقيعات',
@@ -156,9 +152,9 @@ const STRINGS: Record<Locale, PdfStrings> = {
     fabricByColor: 'القماش المطلوب حسب اللون',
     fabricColor: 'لون القماش',
     measures: 'القياسات',
-    measureName: 'المقاس :',
-    unitIn: 'بوصة',
-    unitCm: 'سم',
+    measureName: 'البعد',
+    measureFrom: 'من',
+    measureTo: 'إلى',
     accessories: 'الاكسسوارات',
     accessory: 'الاكسسوار',
     accSpec: 'المواصفات',
@@ -210,8 +206,6 @@ const STRINGS: Record<Locale, PdfStrings> = {
     cutTotal: 'Total to cut',
     cutTotalPieces: 'Cut Total (pcs)',
     requiredFabric: 'Required fabric',
-    extraPercentLabel: 'Extra %',
-    totalWithExtra: 'Total with extra',
     modelImage: 'Model image',
     notes: 'Notes',
     signOff: 'Sign-off',
@@ -235,9 +229,9 @@ const STRINGS: Record<Locale, PdfStrings> = {
     fabricByColor: 'Fabric required by color',
     fabricColor: 'Fabric color',
     measures: 'Measurements',
-    measureName: 'Size:',
-    unitIn: 'Inch',
-    unitCm: 'cm',
+    measureName: 'Dimension',
+    measureFrom: 'From',
+    measureTo: 'To',
     accessories: 'Accessories',
     accessory: 'Accessory',
     accSpec: 'Specification',
@@ -442,20 +436,36 @@ function buildCutting(order: WorkOrder, t: PdfStrings): string {
     ${fabrics.map((f) => `<td class="num bold">${fmt(totals.cutPieces * (f.consumptionPerPiece ?? 0))}</td>`).join('')}
   </tr>`;
 
+  // إضافة الملخص: كمية القماش + نسبة الزيادة + الإجمالي بعد الزيادة لكل fabric
+  const fabricSummaries = fabrics.map((f) => {
+    const base = totals.cutPieces * (f.consumptionPerPiece ?? 0);
+    const extra = f.extraPercent ?? 0;
+    const withExtra = extra > 0 ? base * (1 + extra / 100) : base;
+    const fabricName = fabricLabel(f, t);
+    
+    if (extra > 0) {
+      return `
+        <div style="margin-bottom: 8px;">
+          <strong>${esc(t.requiredFabric)} — ${esc(fabricName)}:</strong> ${fmt(base)} ${esc(f.consumptionUnit || 'kg')}<br/>
+          <span style="color: #586377;">${esc(t.extra)}: <strong>${extra}%</strong></span><br/>
+          <span style="color: #D9962B; font-weight: 600;">الإجمالي بعد الزيادة: ${fmt(withExtra)} ${esc(f.consumptionUnit || 'kg')}</span>
+        </div>
+      `;
+    } else {
+      return `
+        <div style="margin-bottom: 8px;">
+          <strong>${esc(t.requiredFabric)} — ${esc(fabricName)}:</strong> ${fmt(base)} ${esc(f.consumptionUnit || 'kg')}
+        </div>
+      `;
+    }
+  }).join('');
+
   const summary = `<div class="summary-line">
-    <span>${esc(t.toCut)}: <strong>${formatNumber(totals.cutPieces)} ${t.pcs}</strong></span>
+    <div>
+      <span>${esc(t.toCut)}: <strong>${formatNumber(totals.cutPieces)} ${t.pcs}</strong></span>
+    </div>
   </div>
-  ${fabrics
-    .map((f) => {
-      const base = totals.cutPieces * (f.consumptionPerPiece ?? 0);
-      const unit = esc(f.consumptionUnit || 'kg');
-      return `<div class="summary-line">
-    <span>${esc(t.requiredFabric)} — ${esc(fabricLabel(f, t))}: <strong>${fmt(base)} ${unit}</strong></span>
-    <span>${esc(t.extraPercentLabel)}: <strong>${esc(formatNumber(f.extraPercent ?? 0))}%</strong></span>
-    <span>${esc(t.totalWithExtra)}: <strong>${fmt(fabricWithExtra(base, f.extraPercent))} ${unit}</strong></span>
-  </div>`;
-    })
-    .join('')}`;
+  ${fabricSummaries ? `<div style="padding: 8px 12px; font-size: 10pt;">${fabricSummaries}</div>` : ''}`;
 
   return section(t.cuttingQty, table(head, rows.join('') + totalRow) + summary);
 }
@@ -463,14 +473,13 @@ function buildCutting(order: WorkOrder, t: PdfStrings): string {
 function buildMeasures(order: WorkOrder, t: PdfStrings): string {
   const rows = order.measurements ?? [];
   if (!rows.length) return '';
-  const unit = order.measurementUnit === 'in' ? t.unitIn : t.unitCm;
-  const head = `<tr><th></th><th>${esc(t.measureName)}</th>${order.sizes
-    .map((s) => `<th class="num">${esc(s)}<div style="font-weight:400;font-size:8.5pt">${esc(unit)}</div></th>`)
+  const head = `<tr><th></th><th>${esc(t.measureName)}</th><th>${esc(t.measureFrom)}</th><th>${esc(t.measureTo)}</th>${order.sizes
+    .map((s) => `<th class="num">${esc(s)}</th>`)
     .join('')}</tr>`;
   const body = rows
     .map(
       (m) => `<tr>
-      <td class="bold">${esc(m.code)}</td><td>${esc(m.name)}</td>
+      <td class="bold">${esc(m.code)}</td><td>${esc(m.name)}</td><td>${esc(m.measureFrom)}</td><td>${esc(m.measureTo)}</td>
       ${order.sizes.map((s) => `<td class="num">${esc(m.values[s] ?? '')}</td>`).join('')}
     </tr>`,
     )
@@ -483,13 +492,32 @@ function buildAccessories(order: WorkOrder, t: PdfStrings): string {
   if (!list.length) return '';
   const totals = calculateWorkOrderTotals(order);
   const source = { LOCAL: t.srcLocal, IMPORTED: t.srcImported, NOMINATED: t.srcNominated };
+  
+  // helper لحساب الكمية بعد الزيادة
+  const cleanUp = (v: number) => Math.round(v * 1_000_000) / 1_000_000;
+  const calculateWithExtra = (a: typeof list[0]) => {
+    const base = calculateAccessory(a, totals, order.sizes);
+    const extra = a.extraPercent ?? 0;
+    if (extra <= 0) return base;
+    
+    const factor = 1 + extra / 100;
+    const perSize: Record<string, number> = {};
+    for (const size of order.sizes) {
+      perSize[size] = Math.ceil(cleanUp((base.perSize[size] ?? 0) * factor));
+    }
+    const total = a.bySize
+      ? order.sizes.reduce((sum, size) => sum + perSize[size], 0)
+      : Math.ceil(cleanUp(base.total * factor));
+    return { perSize, total };
+  };
+  
   const head = `<tr><th></th><th>${esc(t.accessory)}</th><th>${esc(t.accSpec)}</th><th>${esc(t.accSource)}</th><th class="num">${esc(t.accRatio)}</th><th class="num">${esc(t.accTotal)}</th></tr>`;
   const body = list
     .map((a) => {
-      const r = calculateAccessory(a, totals, order.sizes);
+      const r = calculateWithExtra(a);
       const perSize = a.bySize
         ? `<div style="font-size:8.5pt">${order.sizes
-            .map((s) => `${esc(s)}${a.specsBySize?.[s] ? ` (${esc(a.specsBySize[s])})` : ''}: ${esc(formatNumber(r.perSize[s] ?? 0))}`)
+            .map((s) => `${esc(s)}: ${esc(formatNumber(r.perSize[s] ?? 0))}`)
             .join(' | ')}</div>`
         : '';
       return `<tr>
@@ -497,7 +525,7 @@ function buildAccessories(order: WorkOrder, t: PdfStrings): string {
       <td class="bold">${esc(a.name)}</td>
       <td>${esc(a.spec)}${perSize}</td>
       <td>${esc(source[a.source])}</td>
-      <td class="num">${esc(a.accessoryQty)} : ${esc(a.garmentQty)}</td>
+      <td class="num">${esc(a.accessoryQty)} : ${esc(a.garmentQty)}${a.extraPercent ? ` (+${esc(a.extraPercent)}%)` : ''}</td>
       <td class="num bold">${esc(formatNumber(r.total))} ${esc(a.unit)}</td>
     </tr>`;
     })

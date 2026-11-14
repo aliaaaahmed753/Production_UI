@@ -5,6 +5,7 @@ import {
   FormControl,
   FormControlLabel,
   IconButton,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Select,
@@ -15,9 +16,9 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography,
 } from '@mui/material';
 import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import type { AccessoryBasis, AccessorySection, AccessorySource, AccessoryUnit } from '../../types/workOrder';
 import { formatNumber } from '../../utils/format';
 import { calculateAccessory, calculateWorkOrderTotals } from '../../utils/workOrderCalc';
@@ -56,6 +57,9 @@ export function WorkOrderAccessoriesSection({ text, section, sizes, colors, acce
     pos: [],
   });
 
+  // نسبة الزيادة على مستوى القسم كله (state محلي)
+  const [sectionExtraPercent, setSectionExtraPercent] = useState('');
+
   const mine = accessories.filter((row) => row.section === section);
   const patch = (id: string, change: Partial<AccessoryRow>) =>
     onChange(accessories.map((row) => (row.id === id ? { ...row, ...change } : row)));
@@ -66,23 +70,68 @@ export function WorkOrderAccessoriesSection({ text, section, sizes, colors, acce
     NOMINATED: text.srcNominated,
   };
 
+  // helper لحساب الكمية بدون زيادة
+  const baseResult = (row: AccessoryRow) =>
+    calculateAccessory(
+      {
+        accessoryQty: toNumber(row.accessoryQty),
+        garmentQty: toNumber(row.garmentQty),
+        basis: row.basis,
+        bySize: row.bySize,
+      },
+      totals,
+      sizeIds,
+    );
+
+  // نسبة الزيادة المدخلة
+  const extraPercentParsed = sectionExtraPercent.trim() === '' ? 0 : toNumber(sectionExtraPercent);
+  const extraPercent = Number.isFinite(extraPercentParsed) && extraPercentParsed > 0 ? extraPercentParsed : 0;
+
+  /** إزالة ضوضاء floating point */
+  const cleanUp = (v: number) => Math.round(v * 1_000_000) / 1_000_000;
+
+  /** تطبيق نسبة الزيادة على النتيجة الأساسية */
+  const applyExtra = (base: ReturnType<typeof calculateAccessory>, pct: number, row: AccessoryRow) => {
+    if (pct <= 0) return base;
+    const factor = 1 + pct / 100;
+    const perSize: Record<string, number> = {};
+    for (const id of sizeIds) {
+      perSize[id] = Math.ceil(cleanUp((base.perSize[id] ?? 0) * factor));
+    }
+    const total = row.bySize
+      ? sizeIds.reduce((sum, id) => sum + perSize[id], 0)
+      : Math.ceil(cleanUp(base.total * factor));
+    return { perSize, total };
+  };
+
+  const withExtraResult = (row: AccessoryRow) => {
+    const base = baseResult(row);
+    return applyExtra(base, extraPercent, row);
+  };
+
   return (
     <SectionCard
       title={section === 'OPERATION' ? text.secAccOperation : text.secAccPacking}
       description={text.secAccDesc}
     >
+      {/* حقل نسبة الزيادة على مستوى القسم */}
+      <Box sx={{ mb: 2, maxWidth: 220 }}>
+        <TextField
+          type="number"
+          label={text.extra}
+          value={sectionExtraPercent}
+          onChange={(event) => setSectionExtraPercent(event.target.value)}
+          InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+          inputProps={{ min: 0, step: 'any' }}
+          size="small"
+          fullWidth
+        />
+      </Box>
+
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {mine.map((row) => {
-          const result = calculateAccessory(
-            {
-              accessoryQty: toNumber(row.accessoryQty),
-              garmentQty: toNumber(row.garmentQty),
-              basis: row.basis,
-              bySize: row.bySize,
-            },
-            totals,
-            sizeIds,
-          );
+          const base = baseResult(row);
+          const withExtra = withExtraResult(row);
           const nameError = errors[`accessories.${row.id}.name`];
           const ratioError = errors[`accessories.${row.id}.ratio`];
           return (
@@ -186,62 +235,67 @@ export function WorkOrderAccessoriesSection({ text, section, sizes, colors, acce
               </FormControl>
               <FormControlLabel
                 label={text.accBySize}
+                sx={{ mt: 0.75 }}
                 control={
-                  <Checkbox checked={row.bySize} onChange={(event) => patch(row.id, { bySize: event.target.checked })} />
+                  <Checkbox
+                    checked={row.bySize}
+                    onChange={(event) => patch(row.id, { bySize: event.target.checked })}
+                  />
                 }
               />
-              <span />
 
+              {/* جدول الكمية: صف الكمية الأساسية + صف الزيادة */}
               <Box sx={{ gridColumn: '1 / -1' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {text.accTotal}:{' '}
-                  <Box component="strong" sx={{ color: 'text.primary' }}>
-                    {formatNumber(result.total)}
-                  </Box>{' '}
-                  {row.unit}
-                </Typography>
-                {row.bySize && (
-                  <Box sx={{ overflowX: 'auto', mt: 1 }}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={headCellSx} />
+                <Box sx={{ overflowX: 'auto', mt: 0.5 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={headCellSx} />
+                        {sizes.map((size) => (
+                          <TableCell key={size.id} align="center" sx={headCellSx}>
+                            {size.label.trim() || '—'}
+                          </TableCell>
+                        ))}
+                        <TableCell align="center" sx={headCellSx}>
+                          {text.accTotal}
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {/* صف الكمية الأساسية (بدون زيادة) */}
+                      <TableRow>
+                        <TableCell sx={{ ...headCellSx, color: 'text.secondary', fontSize: '0.75rem' }}>
+                          {text.quantityCol}
+                        </TableCell>
+                        {sizes.map((size) => (
+                          <TableCell key={size.id} align="center">
+                            {formatNumber(base.perSize[size.id] ?? 0)}
+                          </TableCell>
+                        ))}
+                        <TableCell align="center">
+                          {formatNumber(base.total)} {row.unit}
+                        </TableCell>
+                      </TableRow>
+
+                      {/* صف الكمية بعد الزيادة (يظهر فقط لو extraPercent > 0) */}
+                      {extraPercent > 0 && (
+                        <TableRow sx={{ bgcolor: 'action.hover' }}>
+                          <TableCell sx={{ ...headCellSx, color: 'primary.main', fontSize: '0.75rem' }}>
+                            + {formatNumber(extraPercent)}%
+                          </TableCell>
                           {sizes.map((size) => (
-                            <TableCell key={size.id} align="center" sx={headCellSx}>
-                              {size.label.trim() || '—'}
+                            <TableCell key={size.id} align="center" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                              {formatNumber(withExtra.perSize[size.id] ?? 0)}
                             </TableCell>
                           ))}
+                          <TableCell align="center" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                            {formatNumber(withExtra.total)} {row.unit}
+                          </TableCell>
                         </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={headCellSx}>{text.accSpec}</TableCell>
-                          {sizes.map((size) => (
-                            <TableCell key={size.id} align="center" sx={{ px: 0.5 }}>
-                              <TextField
-                                size="small"
-                                value={row.specs[size.id] ?? ''}
-                                onChange={(event) =>
-                                  patch(row.id, { specs: { ...row.specs, [size.id]: event.target.value } })
-                                }
-                                inputProps={{ style: { textAlign: 'center' }, 'aria-label': size.label }}
-                                sx={{ width: 80 }}
-                              />
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={headCellSx}>{text.quantityCol}</TableCell>
-                          {sizes.map((size) => (
-                            <TableCell key={size.id} align="center" sx={{ fontWeight: 600 }}>
-                              {formatNumber(result.perSize[size.id] ?? 0)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </Box>
-                )}
+                      )}
+                    </TableBody>
+                  </Table>
+                </Box>
               </Box>
             </Box>
           );
